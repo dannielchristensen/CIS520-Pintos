@@ -8,13 +8,11 @@
 /* States in a thread's life cycle. */
 enum thread_status
   {
-    THREAD_RUNNING,     /* Running thread. */
-    THREAD_READY,       /* Not running but ready to run. */
-    THREAD_BLOCKED,     /* Waiting for an event to trigger. */
-    THREAD_DYING        /* About to be destroyed. */
-  };
-
-/* Thread identifier type.
+    THREAD_RUNNING,     /* Running thread.                              */
+    THREAD_READY,       /* Not running but ready to run.                */
+    THREAD_BLOCKED,     /* Waiting for an event to trigger.             */
+    THREAD_DYING,       /* About to be destroyed.                       */
+    THREAD_SLEEPING     /* Waiting to be executed.                      */
    You can redefine this to whatever type you like. */
 typedef int tid_t;
 #define TID_ERROR ((tid_t) -1)          /* Error value for tid_t. */
