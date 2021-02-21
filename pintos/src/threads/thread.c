@@ -4,6 +4,7 @@
 #include <random.h>
 #include <stdio.h>
 #include <string.h>
+#include "devices/timer.h"
 #include "threads/flags.h"
 #include "threads/interrupt.h"
 #include "threads/intr-stubs.h"
@@ -150,8 +151,10 @@ thread_tick (void)
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return ();
-  if( (idle_ticks + user_ticks + kernel_ticks) >= next_wakeup_tme && !list_empty( &sleep_list ) )
+  if( timer_ticks() >= next_wakeup_tme && !list_empty( &sleep_list ) )
   {
+    printf("<2>\n");
+    printf("wakeup_time %i\n", next_wakeup_tme);
     thread_wakeup( list_entry (list_front (&sleep_list), struct thread, elem) );
   }
 }
@@ -564,12 +567,14 @@ static void thread_set_wakeup( void )
 //checks if other threads need to wakeup and removes self from list
 
   lock_acquire( &sleep_lock );
-  list_pop_front( &sleep_list );
+  //list_pop_front( &sleep_list );
   
   
   //check if next thread needs to be woken up
   if( !list_empty(&sleep_list) )
   {
+    printf("<3>");
+
     thread * nxt_thrd_ptr = list_entry (list_front (&sleep_list), struct thread, elem);
     
     if( nxt_thrd_ptr->wakeup_time == next_wakeup_tme )
@@ -611,13 +616,20 @@ void thread_sleep_time( int64_t tme )
   //add sema and list stuff
   // add timer to thread structure
   thread_current()->wakeup_time = tme;
-  next_wakeup_tme = tme;
-
+  if(next_wakeup_tme < tme)
+    next_wakeup_tme = tme;
+  printf("\n\nWakeup Time %i\n", next_wakeup_tme);
+  printf("Set wakeup Time %i\n", tme);
+  printf("TID: %i\n", thread_current()->tid);
   lock_acquire( &sleep_lock );
-  //if(list_empty(&sleep_list))
+  if(list_empty(&sleep_list))
     list_push_front( &sleep_list, &(thread_current()->elem));
-  //else
-    //list_insert_ordered( &sleep_list, &(thread_current()->elem), thread_sleep_comp, NULL);
+  else
+  {
+    printf("<1>");
+    printf("%i", tme);
+    list_insert_ordered( &sleep_list, &(thread_current()->elem), thread_sleep_comp, NULL);
+  }
   lock_release( &sleep_lock );
 
   thread_sleep();
@@ -670,7 +682,7 @@ static void thread_wakeup( thread * wakeup_thread )
 
   old_level = intr_disable ();
   printf( "%i\n", wakeup_thread->tid);
-  printf( "%i\n", wakeup_thread->tid);
+  printf( "%i\n", timer_ticks());
 
   list_remove( &(wakeup_thread->elem) );
 
