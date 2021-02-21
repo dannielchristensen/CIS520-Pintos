@@ -153,8 +153,8 @@ thread_tick (void)
     intr_yield_on_return ();
   if( timer_ticks() >= next_wakeup_tme && !list_empty( &sleep_list ) )
   {
-    printf("<2>\n");
-    printf("wakeup_time %i\n", next_wakeup_tme);
+    //printf("<2>\n");
+    //printf("wakeup_time %i\n", next_wakeup_tme);
     thread_wakeup( list_entry (list_front (&sleep_list), struct thread, elem) );
   }
 }
@@ -573,7 +573,6 @@ static void thread_set_wakeup( void )
   //check if next thread needs to be woken up
   if( !list_empty(&sleep_list) )
   {
-    printf("<3>");
 
     thread * nxt_thrd_ptr = list_entry (list_front (&sleep_list), struct thread, elem);
     
@@ -582,7 +581,7 @@ static void thread_set_wakeup( void )
       thread_wakeup( nxt_thrd_ptr );
     }
     else{
-      printf( "%i\n", nxt_thrd_ptr->wakeup_time);
+      //printf( "%i\n", nxt_thrd_ptr->wakeup_time);
       next_wakeup_tme = nxt_thrd_ptr->wakeup_time;
     }
   }
@@ -596,7 +595,14 @@ static void thread_sleep( void )
   ASSERT (!intr_context ());
   ASSERT (intr_get_level () == INTR_OFF);
 
+  lock_acquire( &sleep_lock );
+
+  list_push_front( &sleep_list, &(running_thread()->elem));
+  list_sort( &sleep_list, thread_sleep_comp, NULL);
   thread_current ()->status = THREAD_SLEEPING;
+
+  lock_release( &sleep_lock );
+  
   schedule ();
   intr_set_level(old_level);
 }
@@ -618,19 +624,6 @@ void thread_sleep_time( int64_t tme )
   thread_current()->wakeup_time = tme;
   if(next_wakeup_tme < tme)
     next_wakeup_tme = tme;
-  printf("\n\nWakeup Time %i\n", next_wakeup_tme);
-  printf("Set wakeup Time %i\n", tme);
-  printf("TID: %i\n", thread_current()->tid);
-  lock_acquire( &sleep_lock );
-  if(list_empty(&sleep_list))
-    list_push_front( &sleep_list, &(thread_current()->elem));
-  else
-  {
-    printf("<1>");
-    printf("%i", tme);
-    list_insert_ordered( &sleep_list, &(thread_current()->elem), thread_sleep_comp, NULL);
-  }
-  lock_release( &sleep_lock );
 
   thread_sleep();
 
@@ -681,8 +674,6 @@ static void thread_wakeup( thread * wakeup_thread )
   ASSERT (is_thread (wakeup_thread));
 
   old_level = intr_disable ();
-  printf( "%i\n", wakeup_thread->tid);
-  printf( "%i\n", timer_ticks());
 
   list_remove( &(wakeup_thread->elem) );
 
