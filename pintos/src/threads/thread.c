@@ -523,7 +523,7 @@ next_thread_to_run (void)
 void thread_priority_check( void )
 {
   intr_disable();
-  if( !list_empty(&ready_list) && list_entry (list_front( &ready_list ), struct thread, elem)->tid > thread_current()->tid )
+  if( !list_empty(&ready_list) && list_entry (list_front( &ready_list ), struct thread, elem)->priority > thread_current()->priority )
     {
       thread_yield();
     }
