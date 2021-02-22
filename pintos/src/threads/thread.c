@@ -572,12 +572,12 @@ next_thread_to_run (void)
 
 void thread_priority_check( void )
 {
-  intr_disable();
+  enum intr_level old_level = intr_disable();
   if( !list_empty(&ready_list) && list_entry (list_front( &ready_list ), struct thread, elem)->priority > thread_current()->priority )
     {
       thread_yield();
     }
-  intr_enable();
+  intr_set_level(old_level);
 }
 
 bool thread_priority_sort( const struct list_elem *a,

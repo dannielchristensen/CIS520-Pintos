@@ -6,6 +6,7 @@ CIS 520 - Programming Project #1
 
 >> Fill in the names and email addresses of your group members.
 Danniel Christensen <danniel@k-state.edu>
+Kelcie Dinkel	<kelbyd@k-state.edu>
 
 
 FirstName LastName <email@k-state.edu>
@@ -21,6 +22,7 @@ FirstName LastName <email@k-state.edu>
 >> preparing your submission, other than the Pintos documentation,
 >> course text, lecture notes, and course staff.
 
+https://github.com/Dhanya-Abhirami/Pintos for help on the priority scheduling. 
 
                  ALARM CLOCK
                  ===========
@@ -31,24 +33,84 @@ FirstName LastName <email@k-state.edu>
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+sync.h:
+
+struct lock 
+  {
+    struct thread *holder;      /* Thread holding lock (for debugging). */
+    struct semaphore semaphore; /* Binary semaphore controlling access. */
+    struct list_elem elem;	/* priority donation list element */
+    int max_priority;		/* added for max priority with donations */
+
+  };
+
+thread.h:
+enum thread_status
+  {
+    THREAD_RUNNING,     /* Running thread.                              */
+    THREAD_READY,       /* Not running but ready to run.                */
+    THREAD_BLOCKED,     /* Waiting for an event to trigger.             */
+    THREAD_DYING,       /* About to be destroyed.                       */
+    THREAD_SLEEPING     /* Waiting to be executed.                      */
+  };
+
+#define PRI_MAX_DEPTH 8                 /* Max priority depth */
+
+typedef struct thread
+  {
+    /* Owned by thread.c. */
+    tid_t tid;                          /* Thread identifier. */
+    enum thread_status status;          /* Thread state. */
+    char name[16];                      /* Name (for debugging purposes). */
+    uint8_t *stack;                     /* Saved stack pointer. */
+    int priority;                       /* Priority. */
+    int init_priority;                  /* intial priority with donations */
+    struct list_elem allelem;           /* List element for all threads list. */
+    int64_t wakeup_time;
+
+    /* Shared between thread.c and synch.c. */
+    struct list_elem elem;              /* List element. */
+
+    struct list locks;                  /* locks with priority donated */
+    struct lock *lock_wait;             /* lock currently waiting on */
+
+#ifdef USERPROG
+    /* Owned by userprog/process.c. */
+    uint32_t *pagedir;                  /* Page directory. */
+#endif
+
+    /* Owned by thread.c. */
+    unsigned magic;                     /* Detects stack overflow. */
+  }thread;
+
+
+
+
 
 ---- ALGORITHMS ----
 
 >> A2: Briefly describe what happens in a call to your timer_sleep(),
 >> including the effects of the timer interrupt handler.
 
+calling timer_sleep() results in calling thread_sleep_time(time) which adds the wakeup time to the current_thread() and then puts it sleep by calling thread_sleep(). 
+thread_sleep() will attempt to acquire a lock to add to the sleep_list and sort the list according to thread_sleep_comp.
+
 >> A3: What steps are taken to minimize the amount of time spent in
 >> the timer interrupt handler?
 
+thread_tick will constantly check if there is a thread in sleep_list that is ready to wake up. Only checking time, rather than interating through the list. 
+We do this by only waking up the first thread. 
 
 ---- SYNCHRONIZATION ----
 
 >> A4: How are race conditions avoided when multiple threads call
 >> timer_sleep() simultaneously?
 
+Through the use of locks. We do not let multiple threads access the same list of threads without acquiring the lock. 
 
 >> A5: How are race conditions avoided when a timer interrupt occurs
 >> during a call to timer_sleep()?
+
 
 
 ---- RATIONALE ----
