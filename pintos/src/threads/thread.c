@@ -606,6 +606,27 @@ static void thread_sleep( void )
   schedule ();
   intr_set_level(old_level);
 }
+void thread_yeild_to_higher_priority(void){
+	enum intr_level old_level = intr_disable();
+	if (!list_empty (&ready_list)) {
+		struct thread *cur = thread_current();
+		struct thread *max = list_entry (list_max (&ready_list, thread_lower_priority, NULL), struct thread, elem);
+		if (max->priority > cur->priority) {
+			if(intr_context()){
+				intr_yield_on_return();
+			} else {
+				thread_yeild();
+			}
+		}
+	}
+}
+bool thread_lower_priority( const struct list_elem *a,
+                        const struct list_elem *b,
+                        void *aux ){
+	const thread * thrd_a_ptr = list_entry (a, struct thread, elem);
+	const thread * thrd_b_ptr = list_entry (b, struct thread, elem);
+	return thrd_a_ptr->Priority < b->priority;
+}
 bool thread_sleep_comp( const struct list_elem *a,
                         const struct list_elem *b,
                         void *aux )
