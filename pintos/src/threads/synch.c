@@ -198,6 +198,7 @@ lock_acquire (struct lock *lock)
   struct thread *cur = thread_current();
   int d = 0;
   enum intr_level old_level;
+  struct lock *l = lock;
 
 
   ASSERT (lock != NULL);
@@ -207,7 +208,6 @@ lock_acquire (struct lock *lock)
   if(lock->holder != NULL){
     cur->lock_wait = lock;
     //nested pd
-    struct lock *l = lock;
     while(l && cur->priority > l->max_priority && d++ < PRI_MAX_DEPTH){
       l->max_priority = cur->priority;
       thread_donate_priority(l->holder);
