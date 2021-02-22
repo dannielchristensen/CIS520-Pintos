@@ -66,7 +66,7 @@ static unsigned thread_ticks;   /* # of timer ticks since last yield. */
    Controlled by kernel command-line option "-o mlfqs". */
 bool thread_mlfqs;
 void thread_yield_to_higher_priority(void); /* used to dtermine if ther eis a thread with a higher priority */
-
+bool thread_lower_priority( const struct list_elem *a, const struct list_elem *b, void *aux );
 static void kernel_thread (thread_func *, void *aux);
 
 static void idle (void *aux UNUSED);
@@ -630,7 +630,7 @@ bool thread_lower_priority( const struct list_elem *a,
                         void *aux ){
 	const thread * thrd_a_ptr = list_entry (a, struct thread, elem);
 	const thread * thrd_b_ptr = list_entry (b, struct thread, elem);
-	return thrd_a_ptr->Priority < b->priority;
+	return thrd_a_ptr->priority < thrd_b_ptr->priority;
 }
 bool thread_sleep_comp( const struct list_elem *a,
                         const struct list_elem *b,
