@@ -649,11 +649,11 @@ bool thread_sleep_comp( const struct list_elem *a,
 }
 void donate(struct thread t, int priority){
 	int max;
-	list_push_back(&(t->donation_list), priority);
-	max = list_max(&(t->donation_list));
-	if(t->old_priority == 0)
-		t->old_priority = t->priority;
-	t->thread_set_priority(max);
+	list_push_back(&(t.donation_list), priority);
+	max = list_max(&(t.donation_list));
+	if(t.old_priority == 0)
+		t.old_priority = t->priority;
+	t.thread_set_priority(max);
 }
 void thread_sleep_time( int64_t tme )
 {
