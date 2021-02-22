@@ -652,8 +652,10 @@ void donate(struct thread t, int priority){
 	list_push_back(&(t.donation_list), priority);
 	max = list_max(&(t.donation_list));
 	if(t.old_priority == 0)
-		t.old_priority = t->priority;
-	t.thread_set_priority(max);
+		t.old_priority = t.priority;
+	t.priority = priority;
+	list_sort(&ready_list, thread_lower_priority, NULL);
+	thread_yield();
 }
 void thread_sleep_time( int64_t tme )
 {
