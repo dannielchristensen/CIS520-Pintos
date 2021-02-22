@@ -201,7 +201,7 @@ lock_acquire (struct lock *lock)
   if(lock->holder == NULL)
     lock->holder = thread_current ();
   else{
-    for(e = list_begin &(lock->semaphore->waiters); e != list_end &(lock->semaphore->waiters);e = list_next (e))
+    for(e = list_begin &(lock->semaphore.waiters); e != list_end &(lock->semaphore.waiters);e = list_next (e))
       if(e->priority < thread_current()->priority){
         priority = thread_current;
         thread_current()->waiting = lock;
