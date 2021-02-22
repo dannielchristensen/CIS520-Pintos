@@ -19,7 +19,7 @@
 
 /* Number of timer ticks since OS booted. */
 static int64_t ticks;
-static thread* checkThread;
+
 /* Number of loops per timer tick.
    Initialized by timer_calibrate(). */
 static unsigned loops_per_tick;
@@ -37,18 +37,8 @@ timer_init (void)
 {
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
-  /* begin new code */
-  checkThread = thread_create("checkThreads", 31, &func, NULL);
-  /*end new code */
 }
 
-void 
-check_threads(void)
-{
-	struct thread *t;
-	while(!list_empty(waiting_threads))
-		
-}
 /* Calibrates loops_per_tick, used to implement brief delays. */
 void
 timer_calibrate (void) 

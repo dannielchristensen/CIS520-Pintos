@@ -75,6 +75,7 @@ static void init_thread (struct thread *, const char *name, int priority);
 static bool is_thread (struct thread *) UNUSED;
 static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
+static bool thread_priority_less(struct list_elem *a, struct list_elem *b);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 static void thread_set_wakeup( void );
@@ -255,11 +256,41 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
+  // inserts to the list based on priority, so the list is always sorted by priority
+  list_insert_ordered (&ready_list, &t->elem, thread_priority_less, NULL);
   t->status = THREAD_READY;
+  thread_yield_to_higher_priority();
   intr_set_level (old_level);
 }
 
+/* New code from canvas */
+void 
+thread_yield_to_higher_priority (void){
+  enum intr_level old_level = intr_disable ();
+  if (!list_empty (&ready_list)) {
+    struct thread *cur = thread_current ();
+    struct thread *max = list_entry (list_max (&ready_list,thread_priority_less, NULL), struct thread, elem);
+    if (max->priority > cur->priority) {
+      if (intr_context ())
+        intr_yield_on_return ();
+      else
+        thread_yield ();
+    }
+  }
+  intr_set_level (old_level);
+}
+/* end code from canvas*/
+/*new code*/
+bool
+thread_priority_less(struct list_elem *a, struct list_elem *b){
+  struct thread *thread_a;
+  struct thread *thread_b;
+  thread_a = list_entry( a, struct thread, elem);
+  thread_b = list_entry(b, struct thread, elem);
+  bool less = thread_a->priority < thread_b->priority;
+  return less;
+}
+/*end new code*/
 /* Returns the name of the running thread. */
 const char *
 thread_name (void) 
@@ -353,7 +384,10 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
+  struct thread *head;
   thread_current ()->priority = new_priority;
+  list_sort (&ready_list, thread_priority_less, NULL);
+  thread_yield_to_higher_priority();
 }
 
 /* Returns the current thread's priority. */
@@ -385,6 +419,15 @@ thread_get_load_avg (void)
   /* Not yet implemented. */
   return 0;
 }
+
+/* our code */
+void
+priority_set_temp_max(){
+  struct thread *t = thread_current();
+  thread_current()->previous_priority = t->priority;
+  thread_set_priority(63);
+}
+/* end our code */
 
 /* Returns 100 times the current thread's recent_cpu value. */
 int
@@ -510,8 +553,10 @@ next_thread_to_run (void)
 {
   if (list_empty (&ready_list))
     return idle_thread;
-  else
+  else{
+    list_sort(&ready_list, thread_priority_less, NULL);
     return list_entry (list_pop_front (&ready_list), struct thread, elem);
+  }
 }
 
 /* Completes a thread switch by activating the new thread's page
