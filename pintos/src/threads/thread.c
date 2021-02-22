@@ -650,7 +650,7 @@ bool thread_sleep_comp( const struct list_elem *a,
 void donate(struct thread t, int priority){
 	int max;
 	list_push_back(&(t.donation_list), priority);
-	max = list_max(&(t.donation_list));
+	max = list_max(&(t.donation_list), thread_lower_priority, NULL);
 	if(t.old_priority == 0)
 		t.old_priority = t.priority;
 	t.priority = priority;
