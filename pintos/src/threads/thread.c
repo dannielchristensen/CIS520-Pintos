@@ -606,15 +606,17 @@ static void thread_sleep( void )
   schedule ();
   intr_set_level(old_level);
 }
-
 bool thread_sleep_comp( const struct list_elem *a,
                         const struct list_elem *b,
                         void *aux )
 {
-const thread * thrd_a_ptr = list_entry (a, struct thread, elem);
-const thread * thrd_b_ptr = list_entry (b, struct thread, elem);
-
-return thrd_a_ptr->wakeup_time < thrd_b_ptr->wakeup_time;
+	const thread * thrd_a_ptr = list_entry (a, struct thread, elem);
+	const thread * thrd_b_ptr = list_entry (b, struct thread, elem);
+	if(thrd_a_ptr->wakeup_time == thrd_b_ptr->wakeup_time){
+		return thrd_a_ptr->priority < thrd_b_ptr->priority;
+	}
+	return thrd_a_ptr->wakeup_time < thrd_b_ptr->wakeup_time;
+	
 }
 
 void thread_sleep_time( int64_t tme )
