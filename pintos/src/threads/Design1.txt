@@ -7,10 +7,7 @@ CIS 520 - Programming Project #1
 >> Fill in the names and email addresses of your group members.
 Danniel Christensen <danniel@k-state.edu>
 Kelcie Dinkel	<kelbyd@k-state.edu>
-
-
-FirstName LastName <email@k-state.edu>
-FirstName LastName <email@k-state.edu>
+Karijanna Miller <karijanna@k-state.edu<
 ...
 
 ---- PRELIMINARIES ----
@@ -18,8 +15,10 @@ FirstName LastName <email@k-state.edu>
 >> If you have any preliminary comments on your submission, notes for
 >> the TA, or extra credit, please give them here.
 
-alarm-multiple keeps failing so that there is an issue with priority between 80 and 90,
-but the output appears to be correct. 
+alarm-multiple keeps failing so that there is an issue with the 
+order of wakeup between 90 and 80, but the output appears to be correct. 
+We double checked this test by running "pintos - v -- run alarm-multiple" 
+and the output is in the correct order (80, 80, then 90).
 
 >> Please cite any offline or online sources you consulted while
 >> preparing your submission, other than the Pintos documentation,
