@@ -92,6 +92,8 @@ typedef struct thread
     struct list_elem allelem;           /* List element for all threads list. */
     int64_t wakeup_time;
     int old_priority;                   /* priority of the thread before current priority*/
+    struct list donation_list;          /* list of donated priorities */
+    struct lock *waiting;                /* lock thread is waiting on*/
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */

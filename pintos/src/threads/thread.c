@@ -355,9 +355,9 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
-  thread_current () -> old_priority = thread_current ()->priority;
+  // case 1: no donations
   thread_current ()->priority = new_priority;
-  thread_yield_to_higher_priority();
+  list_sort(&ready_list, thread_lower_priority, NULL);
 }
 
 /* Returns the current thread's priority. */
@@ -618,7 +618,6 @@ void thread_yield_to_higher_priority(void){
 		struct thread *cur = thread_current();
 		struct thread *max = list_entry (list_max (&ready_list, thread_lower_priority, NULL), struct thread, elem);
 		if (max->priority > cur->priority) {
-      printf("<1>");
 			if(intr_context()){
 				intr_yield_on_return();
 			} else {
@@ -648,7 +647,14 @@ bool thread_sleep_comp( const struct list_elem *a,
 	return thrd_a_ptr->wakeup_time < thrd_b_ptr->wakeup_time;
   }
 }
-
+void donate(struct thread t, int priority){
+	int max;
+	list_push_back(&(t->donation_list), priority);
+	max = list_max(&(t->donation_list));
+	if(t->old_priority == 0)
+		t->old_priority = t->priority;
+	t->thread_set_priority(max);
+}
 void thread_sleep_time( int64_t tme )
 {
   //add sema and list stuff

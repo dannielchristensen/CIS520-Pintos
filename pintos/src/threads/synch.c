@@ -201,8 +201,9 @@ lock_acquire (struct lock *lock)
   if(lock->holder == NULL)
     lock->holder = thread_current ();
   else{
-    for(e = list_begin &(lock->semaphore.waiters); e != list_end &(lock->semaphore.waiters);e = list_next (e))
-      if(e->priority < thread_current()->priority){
+    for(e = list_begin (&(lock->semaphore.waiters)); e != list_end &(lock->semaphore.waiters);e = list_next (e))
+      struct thread *t = list_entry (e, struct thread, allelem);
+      if(t->priority < thread_current()->priority){
         priority = thread_current;
         thread_current()->waiting = lock;
         donate(lock->holder, priority);
@@ -243,8 +244,8 @@ lock_release (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
 
-  if(list_size(&lock->semaphore->waiters) > 0 && lock->holder->old_priority > 0){
-    lock->holder->thread_set_priority(lock->holder->old_priority);
+  if(list_size(&lock->semaphore.waiters) > 0 && lock->holder->old_priority > 0){
+    lock->holder.thread_set_priority(lock->holder->old_priority);
   }
   lock->holder = NULL;
 
