@@ -384,7 +384,7 @@ void thread_add_lock( struct lock * lck)
 void thread_remove_lock( struct lock * lck )
 {
   enum intr_level old_level = intr_disable();
-  list_remove( &(lck->elem) );
+  list_remove( &lck->elem);
   thread_update_priority( thread_current() );
   intr_set_level( old_level );
 }
