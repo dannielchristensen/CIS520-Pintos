@@ -257,7 +257,7 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
+  list_insert_ordered (&ready_list, &t->elem, thread_lower_priority, NULL);
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
@@ -356,6 +356,7 @@ void
 thread_set_priority (int new_priority) 
 {
   thread_current ()->priority = new_priority;
+  thread_yield_to_higher_priority();
 }
 
 /* Returns the current thread's priority. */
@@ -513,7 +514,6 @@ next_thread_to_run (void)
   if (list_empty (&ready_list))
     return idle_thread;
   else {
-  		list_sort(&ready_list, thread_lower_priority, NULL);
     	return list_entry (list_pop_front (&ready_list), struct thread, elem);
 	}
 }
@@ -613,10 +613,12 @@ static void thread_sleep( void )
 // if ready list contains a thread with a higher priority yield to it
 void thread_yield_to_higher_priority(void){
 	enum intr_level old_level = intr_disable();
+  printf("<2>");
 	if (!list_empty (&ready_list)) {
 		struct thread *cur = thread_current();
 		struct thread *max = list_entry (list_max (&ready_list, thread_lower_priority, NULL), struct thread, elem);
 		if (max->priority > cur->priority) {
+      printf("<1>");
 			if(intr_context()){
 				intr_yield_on_return();
 			} else {
@@ -639,10 +641,12 @@ bool thread_sleep_comp( const struct list_elem *a,
 	const thread * thrd_a_ptr = list_entry (a, struct thread, elem);
 	const thread * thrd_b_ptr = list_entry (b, struct thread, elem);
 	if(thrd_a_ptr->wakeup_time == thrd_b_ptr->wakeup_time){
-		return thrd_a_ptr->priority < thrd_b_ptr->priority;
+		return thrd_a_ptr->priority > thrd_b_ptr->priority;
 	}
+  else
+  {
 	return thrd_a_ptr->wakeup_time < thrd_b_ptr->wakeup_time;
-	
+  }
 }
 
 void thread_sleep_time( int64_t tme )
@@ -668,6 +672,8 @@ void thread_sleep_time( int64_t tme )
 static void
 schedule (void) 
 {
+  list_sort(&ready_list, thread_lower_priority, NULL);
+
   struct thread *cur = running_thread ();
   struct thread *next = next_thread_to_run ();
   struct thread *prev = NULL;
@@ -708,7 +714,7 @@ static void thread_wakeup( thread * wakeup_thread )
   ASSERT (wakeup_thread->status == THREAD_SLEEPING);
   list_push_back (&ready_list, &wakeup_thread->elem);
   wakeup_thread->status = THREAD_READY;
-
+  thread_yield_to_higher_priority();
   intr_set_level (old_level);
 }
 /* Offset of `stack' member within `struct thread'.
