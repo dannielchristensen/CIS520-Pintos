@@ -82,10 +82,7 @@ static void thread_sleep( void );
 static bool thread_sleep_comp( const struct list_elem *a,
                         const struct list_elem *b,
                         void *aux );
-void thread_priority_check( void );
-bool thread_priority_sort( const struct list_elem *a,
-                        const struct list_elem *b,
-                        void *aux );
+
 static void thread_wakeup( thread * wakeup_thread );
 
 /* Initializes the threading system by transforming the code
@@ -367,6 +364,45 @@ int
 thread_get_priority (void) 
 {
   return thread_current ()->priority;
+}
+
+void thread_add_lock( struct lock * lck)
+{
+ enum intr_level old_level = intr_disable();
+ list_insert_ordered(&thread_current()->locks, &lck->elem, lock_priority_greater, NULL);
+
+  thread * cur = thread_current();
+ /* attempt to yield if the thread with the lock has a greater priority */
+ if( lck->max_priority > cur->priority)
+ {
+   cur->priority = lock->max_priority;
+   thread_priority_check();
+ }
+ intr_set_level( old_level );
+}
+
+void thread_remove_lock( struct lock * lck )
+{
+  enum intr_level old_level = intr_disable();
+  list_remove( &(lck->elem) );
+  thread_update_priority( thread_current() );
+  intr_set_level( old_level );
+}
+
+void thread_update_priority( struct thread * cur )
+{
+  int mx_pr = cur->init_priority;
+  int lck_pr;
+  enum intr_level old_level = intr_disable();
+  if( !list_empty(&cur->locks))
+  {
+    list_sort( &cur->locks, lock_priority_greater, NULL);
+    lck_pr = list_entry( list_front(&cur->locks), struct lock, elem)->maxpriority;
+    if( lck_pr > mx_pr)
+      mx_pr = lck_pr;
+  }
+  cur->priority = mx_pr;
+  intr_set_level(old_level);
 }
 
 /* Sets the current thread's nice value to NICE. */
