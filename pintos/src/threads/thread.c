@@ -639,7 +639,10 @@ bool thread_sleep_comp( const struct list_elem *a,
 {
 const thread * thrd_a_ptr = list_entry (a, struct thread, elem);
 const thread * thrd_b_ptr = list_entry (b, struct thread, elem);
-
+if( thrd_a_ptr->wakeup_time == thrd_b_ptr->wakeup_time )
+{
+  return thrd_a_ptr->priority > thrd_b_ptr->priority;
+}
 return thrd_a_ptr->wakeup_time < thrd_b_ptr->wakeup_time;
 }
 
@@ -704,7 +707,7 @@ static void thread_wakeup( thread * wakeup_thread )
   list_remove( &(wakeup_thread->elem) );
 
   ASSERT (wakeup_thread->status == THREAD_SLEEPING);
-  list_push_back (&ready_list, &wakeup_thread->elem);
+  list_insert_ordered (&ready_list, &wakeup_thread->elem, thread_priority_sort, NULL);
   wakeup_thread->status = THREAD_READY;
 
   intr_set_level (old_level);
