@@ -614,7 +614,6 @@ static void thread_sleep( void )
 // if ready list contains a thread with a higher priority yield to it
 void thread_yield_to_higher_priority(void){
 	enum intr_level old_level = intr_disable();
-  printf("<2>");
 	if (!list_empty (&ready_list)) {
 		struct thread *cur = thread_current();
 		struct thread *max = list_entry (list_max (&ready_list, thread_lower_priority, NULL), struct thread, elem);
