@@ -83,6 +83,10 @@ static void thread_sleep( void );
 static bool thread_sleep_comp( const struct list_elem *a,
                         const struct list_elem *b,
                         void *aux );
+void thread_priority_check(void);
+static bool thread_priority_sort( const struct list_elem *a,
+                        const struct list_elem *b,
+                        void *aux );
 static void thread_wakeup( thread * wakeup_thread );
 
 /* Initializes the threading system by transforming the code
@@ -218,6 +222,8 @@ thread_create (const char *name, int priority,
   sf->eip = switch_entry;
   sf->ebp = 0;
 
+  thread_priority_check();
+
   /* Add to run queue. */
   thread_unblock (t);
 
@@ -257,7 +263,7 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_insert_ordered (&ready_list, &t->elem, thread_lower_priority, NULL);
+  list_insert_ordered (&ready_list, &t->elem, thread_priority_sort, NULL);
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
@@ -328,7 +334,7 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread) 
-    list_push_back (&ready_list, &cur->elem);
+    list_insert_ordered (&ready_list, &cur->elem, thread_priority_sort, NULL);
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -357,7 +363,7 @@ thread_set_priority (int new_priority)
 {
   // case 1: no donations
   thread_current ()->priority = new_priority;
-  list_sort(&ready_list, thread_lower_priority, NULL);
+  thread_priority_check();
 }
 
 /* Returns the current thread's priority. */
@@ -519,6 +525,26 @@ next_thread_to_run (void)
 	}
 }
 
+void thread_priority_check( void )
+{
+  intr_disable();
+  if( !list_empty(&ready_list) && list_entry(list_front(&ready_list), struct thread, elem)->priority > thread_current()->priority )
+  {
+    thread_yield();
+  }
+  intr_enable();
+}
+
+bool thread_priority_sort(  const struct list_elem *a,
+                            const struct list_elem *b,
+                            void *aux )
+{
+	const thread * thrd_a_ptr = list_entry (a, struct thread, elem);
+	const thread * thrd_b_ptr = list_entry (b, struct thread, elem);
+
+  return thrd_a_ptr->priority > thrd_b_ptr->priority;
+}
+
 /* Completes a thread switch by activating the new thread's page
    tables, and, if the previous thread is dying, destroying it.
 
@@ -639,13 +665,10 @@ bool thread_sleep_comp( const struct list_elem *a,
 {
 	const thread * thrd_a_ptr = list_entry (a, struct thread, elem);
 	const thread * thrd_b_ptr = list_entry (b, struct thread, elem);
-	if(thrd_a_ptr->wakeup_time == thrd_b_ptr->wakeup_time){
+	if(thrd_a_ptr->wakeup_time == thrd_b_ptr->wakeup_time)
 		return thrd_a_ptr->priority > thrd_b_ptr->priority;
-	}
-  else
-  {
 	return thrd_a_ptr->wakeup_time < thrd_b_ptr->wakeup_time;
-  }
+  
 }
 void donate(struct thread t, int priority){
 	int max;
@@ -720,7 +743,7 @@ static void thread_wakeup( thread * wakeup_thread )
   list_remove( &(wakeup_thread->elem) );
 
   ASSERT (wakeup_thread->status == THREAD_SLEEPING);
-  list_push_back (&ready_list, &wakeup_thread->elem);
+  list_insert_ordered (&ready_list, &wakeup_thread->elem, thread_priority_sort, NULL);
   wakeup_thread->status = THREAD_READY;
   thread_yield_to_higher_priority();
   intr_set_level (old_level);
