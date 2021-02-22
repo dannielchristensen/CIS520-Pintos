@@ -65,6 +65,7 @@ static unsigned thread_ticks;   /* # of timer ticks since last yield. */
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */
 bool thread_mlfqs;
+void thread_yield_to_higher_priority(void); /* used to dtermine if ther eis a thread with a higher priority */
 
 static void kernel_thread (thread_func *, void *aux);
 
@@ -155,6 +156,7 @@ thread_tick (void)
   {
     thread_wakeup( list_entry (list_front (&sleep_list), struct thread, elem) );
   }
+  thread_yield_to_higher_priority();
 }
 
 /* Prints thread statistics. */
@@ -510,8 +512,10 @@ next_thread_to_run (void)
 {
   if (list_empty (&ready_list))
     return idle_thread;
-  else
-    return list_entry (list_pop_front (&ready_list), struct thread, elem);
+  else {
+  		list_sort(&ready_list, thread_lower_priority, NULL);
+    	return list_entry (list_pop_front (&ready_list), struct thread, elem);
+	}
 }
 
 /* Completes a thread switch by activating the new thread's page
@@ -606,7 +610,8 @@ static void thread_sleep( void )
   schedule ();
   intr_set_level(old_level);
 }
-void thread_yeild_to_higher_priority(void){
+// if ready list contains a thread with a higher priority yield to it
+void thread_yield_to_higher_priority(void){
 	enum intr_level old_level = intr_disable();
 	if (!list_empty (&ready_list)) {
 		struct thread *cur = thread_current();
