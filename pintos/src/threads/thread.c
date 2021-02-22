@@ -375,7 +375,7 @@ void thread_add_lock( struct lock * lck)
  /* attempt to yield if the thread with the lock has a greater priority */
  if( lck->max_priority > cur->priority)
  {
-   cur->priority = lock->max_priority;
+   cur->priority = lck->max_priority;
    thread_priority_check();
  }
  intr_set_level( old_level );
@@ -389,6 +389,18 @@ void thread_remove_lock( struct lock * lck )
   intr_set_level( old_level );
 }
 
+void thread_donate_priority( struct thread * cur )
+{
+  enum intr_level old_level = intr_disable();
+  thread_update_priority( cur );
+  if( (*cur).status == THREAD_READY )
+  {
+    list_remove( &cur->elem );
+    list_insert_ordered( &ready_list, &cur->elem, thread_priority_sort, NULL );
+  }
+  intr_set_level(old_level);
+}
+
 void thread_update_priority( struct thread * cur )
 {
   int mx_pr = cur->init_priority;
@@ -397,7 +409,7 @@ void thread_update_priority( struct thread * cur )
   if( !list_empty(&cur->locks))
   {
     list_sort( &cur->locks, lock_priority_greater, NULL);
-    lck_pr = list_entry( list_front(&cur->locks), struct lock, elem)->maxpriority;
+    lck_pr = list_entry( list_front(&cur->locks), struct lock, elem)->max_priority;
     if( lck_pr > mx_pr)
       mx_pr = lck_pr;
   }

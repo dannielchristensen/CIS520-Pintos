@@ -192,7 +192,7 @@ lock_init (struct lock *lock)
 void
 lock_acquire (struct lock *lock)
 {
-  struct thread cur* = current_thread();
+  struct thread * cur = thread_current();
   int d = 0;
   enum intr_level old_level;
 
@@ -202,7 +202,7 @@ lock_acquire (struct lock *lock)
   ASSERT (!lock_held_by_current_thread (lock));
 
   if(lock->holder != NULL){
-    t->lock_wait = lock;
+    cur->lock_wait = lock;
     //nested pd
     struct lock *l = lock;
     while(lock && cur->priority > l->max_priority && d++ < PRI_MAX_DEPTH){
@@ -214,7 +214,7 @@ lock_acquire (struct lock *lock)
   sema_down (&lock->semaphore);
   cur = thread_current();
   old_level = intr_disable();
-  cur->lock_waiting = NULL;
+  cur->lock_wait = NULL;
   lock->max_priority = cur->priority;
   thread_add_lock(lock);
   lock->holder = thread_current ();
@@ -274,8 +274,8 @@ lock_held_by_current_thread (const struct lock *lock)
 bool
 lock_priority_greater( const struct list_elem *a, const struct list_elem *b, void *aux )
 {
-  const thread * lock_a_ptr = list_entry (a, struct lock, elem);
-  const thread * lock_b_ptr = list_entry (b, struct lock, elem);
+  const struct lock * lock_a_ptr = list_entry (a, struct lock, elem);
+  const struct lock * lock_b_ptr = list_entry (b, struct lock, elem);
 
   return lock_a_ptr->max_priority > lock_b_ptr->max_priority;
 }
