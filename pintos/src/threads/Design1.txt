@@ -18,12 +18,23 @@ FirstName LastName <email@k-state.edu>
 >> If you have any preliminary comments on your submission, notes for
 >> the TA, or extra credit, please give them here.
 
+alarm-multiple keeps failing so that there is an issue with priority between 80 and 90,
+but the output appears to be correct. 
+
 >> Please cite any offline or online sources you consulted while
 >> preparing your submission, other than the Pintos documentation,
 >> course text, lecture notes, and course staff.
 
-https://github.com/Dhanya-Abhirami/Pintos for help on the priority scheduling. 
+https://github.com/Dhanya-Abhirami/Pintos for help on the priority scheduling, 
+specifically semaphores and conditionals. 
 
+https://tssurya.wordpress.com/2014/10/25/priority-scheduling-inversion-and-donation/ 
+for help on priority donation. 
+
+https://web.eecs.umich.edu/~akamil/teaching/sp04/pri/ for help on priority donation. 
+
+https://web.stanford.edu/~ouster/cgi-bin/cs140-spring18/pintos/pintos_2.html was used 
+to get a better understanding of thread_set_priority()
                  ALARM CLOCK
                  ===========
 
@@ -33,17 +44,6 @@ https://github.com/Dhanya-Abhirami/Pintos for help on the priority scheduling.
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
-sync.h:
-
-struct lock 
-  {
-    struct thread *holder;      /* Thread holding lock (for debugging). */
-    struct semaphore semaphore; /* Binary semaphore controlling access. */
-    struct list_elem elem;	/* priority donation list element */
-    int max_priority;		/* added for max priority with donations */
-
-  };
-
 thread.h:
 enum thread_status
   {
@@ -51,36 +51,16 @@ enum thread_status
     THREAD_READY,       /* Not running but ready to run.                */
     THREAD_BLOCKED,     /* Waiting for an event to trigger.             */
     THREAD_DYING,       /* About to be destroyed.                       */
-    THREAD_SLEEPING     /* Waiting to be executed.                      */
++    THREAD_SLEEPING     /* Waiting to be executed.                      */
   };
 
 #define PRI_MAX_DEPTH 8                 /* Max priority depth */
 
 typedef struct thread
   {
-    /* Owned by thread.c. */
-    tid_t tid;                          /* Thread identifier. */
-    enum thread_status status;          /* Thread state. */
-    char name[16];                      /* Name (for debugging purposes). */
-    uint8_t *stack;                     /* Saved stack pointer. */
-    int priority;                       /* Priority. */
-    int init_priority;                  /* intial priority with donations */
-    struct list_elem allelem;           /* List element for all threads list. */
-    int64_t wakeup_time;
-
-    /* Shared between thread.c and synch.c. */
-    struct list_elem elem;              /* List element. */
-
-    struct list locks;                  /* locks with priority donated */
-    struct lock *lock_wait;             /* lock currently waiting on */
-
-#ifdef USERPROG
-    /* Owned by userprog/process.c. */
-    uint32_t *pagedir;                  /* Page directory. */
-#endif
-
-    /* Owned by thread.c. */
-    unsigned magic;                     /* Detects stack overflow. */
+..
++    int64_t wakeup_time;
+...     
   }thread;
 
 
@@ -92,33 +72,44 @@ typedef struct thread
 >> A2: Briefly describe what happens in a call to your timer_sleep(),
 >> including the effects of the timer interrupt handler.
 
-calling timer_sleep() results in calling thread_sleep_time(time) which adds the wakeup time to the current_thread() and then puts it sleep by calling thread_sleep(). 
-thread_sleep() will attempt to acquire a lock to add to the sleep_list and sort the list according to thread_sleep_comp.
+calling timer_sleep() results in calling thread_sleep_time(time) which 
+adds the wakeup time to the current_thread() and then puts it sleep by 
+calling thread_sleep(). thread_sleep() will attempt to acquire a lock 
+to add to the sleep_list and sort the list according to thread_sleep_comp.
 
 >> A3: What steps are taken to minimize the amount of time spent in
 >> the timer interrupt handler?
 
-thread_tick will constantly check if there is a thread in sleep_list that is ready to wake up. Only checking time, rather than interating through the list. 
-We do this by only waking up the first thread. 
+thread_tick will constantly check if there is a thread in sleep_list 
+that is ready to wake up. Only checking time, rather than interating 
+through the list. We do this by only waking up the first thread. 
 
 ---- SYNCHRONIZATION ----
 
 >> A4: How are race conditions avoided when multiple threads call
 >> timer_sleep() simultaneously?
 
-Through the use of locks. We do not let multiple threads access the same list of threads without acquiring the lock. 
+Through the use of locks. We do not let multiple threads access the 
+same list of threads without acquiring the lock. 
 
 >> A5: How are race conditions avoided when a timer interrupt occurs
 >> during a call to timer_sleep()?
 
-
+Inside thread_sleep() we turned off interrupts because you cannot 
+call lock_acquire() inside an interrupt. We could have continuously 
+tried to acquire the lock but that would make the interrupt busy 
+wait and we decided to not do that.  
 
 ---- RATIONALE ----
 
 >> A6: Why did you choose this design?  In what ways is it superior to
 >> other designs that you considered?
 
-
+We originally wanted to create a seperate thread that would continuously 
+check for threads that are ready, but we decided that this design was 
+superior to the other one because the other one would limit it to one 
+thread. This would limit resources to what is checking if a thread is ready. 
+This design also allows us to have a smaller code base which is less prone to errors. 
 
              PRIORITY SCHEDULING
              ===================
@@ -129,7 +120,46 @@ Through the use of locks. We do not let multiple threads access the same list of
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+
+sync.h:
+
+struct lock 
+  {
+    struct thread *holder;      /* Thread holding lock (for debugging). */
+    struct semaphore semaphore; /* Binary semaphore controlling access. */
+    struct list_elem elem;	/* priority donation list element */
++    int max_priority;		/* added for max priority with donations */
+
+  };
+
+struct semaphore 
+  {
+    unsigned value;             /* Current value. */
+    struct list waiters;        /* List of waiting threads. */
+    int priority;               /* Priority of the semaphore. */
+  };
+
+thread.h:
+
+typedef struct thread
+  {
+...
+    
++    int priority;                       /* Priority. */
++    int init_priority;                  /* intial priority with donations */
++    struct list_elem allelem;           /* List element for all threads list. */
+...
++    struct list locks;                  /* locks with priority donated */
++    struct lock *lock_wait;             /* lock currently waiting on */
+
+...
+  }thread;
+
 >> B2: Explain the data structure used to track priority donation.
+
+We maintain a list of locks that have donated their priority to the current thread. 
+A lock also has the max_priority to determine the priority attached to that lock.
+To determine max priority you can then filter the list of locks using max.  
 
 
 ---- ALGORITHMS ----
@@ -137,11 +167,38 @@ Through the use of locks. We do not let multiple threads access the same list of
 >> B3: How do you ensure that the highest priority thread waiting for
 >> a lock, semaphore, or condition variable wakes up first?
 
+We use prioroty donation and always check if the running thread needs 
+to yield to a higher priority thread. When sema_up is called, it will
+execute a thread_priority_check() to determine if a thread needs to 
+yield. When a lock is released, then the thread will remove the lock from its
+list and its priority is changed to the next highest priority of the 
+list (or its priority). If its priority is lower than a different thread that
+is ready, then it will yield. 
+
 >> B4: Describe the sequence of events when a call to lock_acquire()
 >> causes a priority donation.  How is nested donation handled?
 
+
+Anything that tries to acquire the lock goes through a while loop 
+(up to 8 depths) to update the priority of the lock to be the highest 
+priority thread that is waiting for the lock. After the lock is finished 
+the thread will yield to the highest priority. Running thread_priority_check() 
+will check if the current thread has the priority to continue, if it has 
+donation the thread will continue. If a thread is no longer waiting on a 
+certain lock, then its priority would revert back to its init_priority and 
+it yields to the higher priority thread. 
+
+Inside lock_acquire, it will also call thread_add_lock() which adds the 
+lock to the threads list and sets the locks max priority. This will result in 
+thread_priority_check() being called. 
+
 >> B5: Describe the sequence of events when lock_release() is called
 >> on a lock that a higher-priority thread is waiting for.
+
+When a lock is released it will remove the lock from the current thread's 
+list of locks and set the holder of the lock to null. When a lock is removed 
+from a thread's list, then its priority is updated and it is determined if it 
+needs to yield to a different priority. 
 
 ---- SYNCHRONIZATION ----
 
@@ -149,11 +206,23 @@ Through the use of locks. We do not let multiple threads access the same list of
 >> how your implementation avoids it.  Can you use a lock to avoid
 >> this race?
 
+A potential race condition is the ready_list, or the list of all threads 
+that are ready to be continue. One thing that we did to avoid any race 
+conditions is to disable interrupts so that the interrupt handler cannot change
+the ready_list() while we are accessing it to determine the next thread that is 
+ready. One thing we could have improved was potentially using a lock to determine 
+who has access to the ready_list. 
+
 ---- RATIONALE ----
 
 >> B7: Why did you choose this design?  In what ways is it superior to
 >> another design you considered?
 
+We chose this design because it simplified the priority donation chain 
+down so that we wouldn't have to call any extra methods. Other designs
+we were considering did not have a method to deal with priority donation 
+that was happening more than once. Creating a list of locks allows
+us to determine what the max priority is. 
 
               ADVANCED SCHEDULER [EXTRA CREDIT]
               =================================
