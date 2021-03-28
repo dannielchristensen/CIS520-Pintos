@@ -15,20 +15,21 @@
 #include "threads/vaddr.h"
 #include "lib/syscall-nr.h"
 
-// PLEASE NO MAGIC NUMBERS!!!!!!! I DEFINITELY DIDN"T TAKE 4 HOURS TO DEBUG ONE
+#define ONE_BYTE_MASK ( 0xFF )              /* Mask for keeping only the lower 8 bits       */
 
-#define RET_ERROR ( -1 )
+#define FD_STDIN  ( 0 )                     /* Standard Input                               */
+#define FD_STDOUT ( 1 )                     /* Standard Output                              */
+#define FD_STDERR ( 2 )                     /* Error message output                         */
+#define FD_START  ( 3 )                     /* first number able to be used as a descriptor */
 
-#define FD_KEYBOARD_IN ( 0 )
-#define FD_CONSOLE_OUT ( 1 )
+#define RET_ERROR ( -1 )                    /* Error return value                           */
 
-#define STACK_ALIGNMENT_SINGLE ( 4 )
-#define STACK_ALIGNMENT_DOUBLE ( 8 )
-#define STACK_ALIGNMENT_TRIPLE ( 12 )
+#define STACK_ALIGNMENT_SINGLE ( 4 )        /* Alignment of first parameter on stack        */
+#define STACK_ALIGNMENT_DOUBLE ( 8 )        /* Alignment of second parameter on stack       */
+#define STACK_ALIGNMENT_TRIPLE ( 12 )       /* Alignment of third parameter on stack        */
 
 
 static void syscall_handler (struct intr_frame *);
-static void fail_mem_adr( void );
 
 /******************** System call prototypes *********************/
 void      syscall_close   ( int fd                                );
@@ -37,6 +38,13 @@ int       syscall_read    ( int fd, void * buffer, unsigned size  );
 void      syscall_seek    ( int fd, unsigned position             );
 unsigned  syscall_tell    ( int fd                                );
 void      syscall_close   ( int fd                                );
+
+
+/******************** Helper function prototypes *************************/
+static void               call_fail     ( void );
+static void               check_user_mem( const uint8_t *addr );
+static struct file_desc * find_file_dsc ( thread * thrd, int fd )
+
 
 
 /* Reads a byte at user virtual address UADDR.
@@ -55,7 +63,7 @@ get_user (const uint8_t *uaddr){
 
   if( ( void * ) uaddr > PHYS_BASE )
   {
-    result = -1;
+    result = RET_ERROR;
   }
   else
   {
@@ -80,16 +88,15 @@ static bool
 put_user (uint8_t *udst, uint8_t byte){
 
   int error_code;
-
   if( ( void * ) udst > PHYS_BASE )
   {
-    error_code = -1;
+    error_code = RET_ERROR;
   }
   else
   {
     asm ("movl $1f, %0; movb %b2, %1; 1:"       : "=&a" (error_code), "=m" (*udst) : "q" (byte));
   }
-  return error_code != -1;
+  return error_code != RET_ERROR;
 
 }
 
@@ -103,11 +110,12 @@ int read_usr_mem( void * src, void * dst, size_t byte_cnt )
   for( i = 0; i < byte_cnt; i++ )
   {
     byte = get_user( src + i );
-    if( byte == -1 )
+
+    if( byte == RET_ERROR )
       fail_mem_adr();
 
-    //Mask off anything above our byte
-    byte = byte & 0xFF;
+    //Mask off anything above our lower byte
+    byte &= ONE_BYTE_MASK;
     *( char * )( dst + i ) = byte;
   }
 }
@@ -173,19 +181,43 @@ syscall_handler (struct intr_frame *f )
     ret_val = syscall_read( fd, buffer, size );
 
     f->eax = ret_val;
-    /* code */
     break;
   case SYS_WRITE:
-    /* code */
+    int fd, ret_val;
+    void * buffer;
+    unsigned size;
+
+    read_usr_mem( f->esp + STACK_ALIGNMENT_SINGLE, &fd,     sizeof( fd )      );
+    read_usr_mem( f->esp + STACK_ALIGNMENT_DOUBLE, &buffer, sizeof( buffer )  );
+    read_usr_mem( f->esp + STACK_ALIGNMENT_TRIPLE, &size,   sizeof( size )    );
+
+    ret_val = syscall_write( fd, buffer, size );
+
+    f->eax = ret_val;
     break;
   case SYS_SEEK:
-    /* code */
+    int fd;
+    unsigned pos;
+
+    read_usr_mem( f->esp + STACK_ALIGNMENT_SINGLE, &fd,     sizeof( fd )   );
+    read_usr_mem( f->esp + STACK_ALIGNMENT_DOUBLE, &pos,    sizeof( pos )  );
+
+    syscall_seek( fd, pos );
     break;  
   case SYS_TELL:
-    /* code */
+    int fd; 
+    unsigned ret_val;
+
+    read_usr_mem( f->esp + STACK_ALIGNMENT_SINGLE, &fd, sizeof( fd ) );
+    ret_val = syscall_tell( fd );
+    
+    f->eax = ret_val;
     break;
   case SYS_CLOSE:
-    /* code */
+    int fd;
+
+    read_usr_mem( f->esp + STACK_ALIGNMENT_SINGLE, &fd, sizeof( fd ) );
+    syscall_close( fd );
     break;
   default:
       printf ("Unknown Ssytem Call!\n");
@@ -269,28 +301,54 @@ bool remove (const char *file) {
 /**************************** Kelcie's Code now ********************/
 
 /****************************** Helper functions *******************************/
-// check the memory address is within the valid range
-static void check_user_mem( const uint8_t *addr )
-{
-  if( get_user( addr ) == -1 )
-    fail_mem_adr();
-}
 
-// Fail due to a bad memory address
-static void fail_mem_adr( void )
+
+/**********************************************************************
+ * 
+ * Procedure: check_user_mem
+ * 
+ * 
+ *    Use: Releases locks and then returns and error
+ * 
+**********************************************************************/
+static void call_fail( void )
 {
   if( lock_held_by_current_thread( &lock_file ) )
     lock_release( &lock_file );
 
-  exit( -1 );
+  exit( RET_ERROR );
 } 
 
+/**********************************************************************
+ * 
+ * Procedure: check_user_mem
+ * 
+ * 
+ *    Use: checks the provided address to verify it is within an
+ *         acceptable memory space
+ * 
+**********************************************************************/
+static void check_user_mem( const uint8_t *addr )
+{
+  if( get_user( addr ) == RET_ERROR )
+    call_fail();
+}
+
+/**********************************************************************
+ * 
+ * Procedure: find_file_dsc
+ * 
+ * 
+ *    Use: Finds the descriptor for the provided file number.
+ *         Returns NULL if file is not opened for the thread
+ * 
+**********************************************************************/
 static struct file_desc * find_file_dsc( thread * thrd, int fd )
 {
   struct fild_desc * ret_desc;
   ASSERT( thrd != NULL );
 
-  if( fd < 3 )
+  if( fd < FD_START )
   {
     ret_desc = NULL;
   }
@@ -316,6 +374,15 @@ static struct file_desc * find_file_dsc( thread * thrd, int fd )
 
 /********************************* System Calls **********************************/
 
+
+/**********************************************************************
+ * 
+ * Procedure: syscall_close
+ * 
+ * 
+ *    Use: Closes a file specified by fd if it is open
+ * 
+**********************************************************************/
 void syscall_close( int fd )
 {
   lock_acquire( &lock_file );
@@ -333,6 +400,14 @@ void syscall_close( int fd )
   lock_release( &lock_file );
 }
 
+/**********************************************************************
+ * 
+ * Procedure: syscall_filesize
+ * 
+ * 
+ *    Use: Returns the size of the file specified by fd
+ * 
+**********************************************************************/
 int syscall_filesize( int fd )
 {
   int ret_val = RET_ERROR;
@@ -351,6 +426,15 @@ int syscall_filesize( int fd )
   return ret_val;
 }
 
+/**********************************************************************
+ * 
+ * Procedure: syscall_read
+ * 
+ * 
+ *    Use: Reads size amount of bytes from fd into the buffer. Number
+ *         of bytes read is returened. 
+ * 
+**********************************************************************/
 int syscall_read( int fd, void * buffer, unsigned size )
 {
   //Verify the buffer is entire within correct memory space
@@ -360,7 +444,7 @@ int syscall_read( int fd, void * buffer, unsigned size )
   int ret_val = RET_ERROR;
   lock_acquire(&lock_file);
 
-  if( fd == FD_KEYBOARD_IN )
+  if( fd == FD_STDIN )
   {
     unsigned byte_num;
     for( byte_num = 0; byte_num < size; byte_num++ )
@@ -387,6 +471,14 @@ int syscall_read( int fd, void * buffer, unsigned size )
 
 }
 
+/*************************************************************************
+ * 
+ * Procedure: syscall_seek
+ * 
+ * 
+ *    Use: Sets the current byte of the file fd to position
+ * 
+*************************************************************************/
 void syscall_seek( int fd, unsigned position )
 {
   lock_acquire( &lock_file );
@@ -398,6 +490,14 @@ void syscall_seek( int fd, unsigned position )
   lock_release( &lock_file );
 }
 
+/*************************************************************************
+ * 
+ * Procedure: syscall_tell
+ * 
+ * 
+ *    Use: Returns the current byte of the file fd 
+ * 
+*************************************************************************/
 unsigned syscall_tell( int fd )
 {
   lock_acquire( &lock_acquire );
@@ -413,10 +513,20 @@ unsigned syscall_tell( int fd )
   return ret_val;
 }
 
-//May need to add code for bigger buffer??
+/*************************************************************************
+ * 
+ * Procedure: syscall_write
+ * 
+ * 
+ *    Use: Writes the size number of bytes from the buffer to the file
+ *         fd
+ * 
+*************************************************************************/
 int syscall_write( int fd, const void * buffer, unsigned size )
 {
-  //Verify the buffer is entire within correct memory space
+  /*-------------------------------------------------------------------
+  Verify the buffer is completemy within expected memory
+  -------------------------------------------------------------------*/
   check_user_mem( ( const uint8_t * ) buffer );
   check_user_mem( ( const uint8_t * ) buffer + size);
 
@@ -424,13 +534,19 @@ int syscall_write( int fd, const void * buffer, unsigned size )
   
   int ret_val = RET_ERROR;
 
-  if( fd == FD_CONSOLE_OUT )
+  /*-------------------------------------------------------------------
+  Print out to stdout
+  -------------------------------------------------------------------*/
+  if( fd == FD_STDOUT )
   {
     putbuf( buffer, size );
     ret_val = size;
   }
   else
   {
+    /*-----------------------------------------------------------------
+    Write to the file specified by fd if the file exists
+    -----------------------------------------------------------------*/
     struct file_desc * file_info = find_file_dsc( thread_current(), fd );
     if( file_info && file_info->file )
     {
