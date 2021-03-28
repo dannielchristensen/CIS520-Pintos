@@ -100,6 +100,8 @@ typedef struct thread
     uint32_t *pagedir;                  /* Page directory. */
     bool success;                       /* Detect user thread's success */
 
+    struct list file_descriptors;
+
 #endif
     struct semaphore *temp_sema;       /* temporary solution while waiting on get_child_process */
     struct thread * parent;              /* temp way to keep track of parent */

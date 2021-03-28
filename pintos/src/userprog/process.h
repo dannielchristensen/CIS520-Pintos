@@ -9,4 +9,11 @@ void process_exit (void);
 void process_activate (void);
 struct thread* process_get_child(struct thread* t, tid_t child_tid UNUSED);
 
+//IDK where to put this... heeelllllppppppp
+struct file_desc {
+    int id;
+    struct list_elem elem;//May not beed needed but could be useful
+    struct file * file;
+};
+
 #endif /* userprog/process.h */
