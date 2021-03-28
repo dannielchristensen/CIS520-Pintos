@@ -32,18 +32,19 @@
 static void syscall_handler (struct intr_frame *);
 
 /******************** System call prototypes *********************/
-void      syscall_close   ( int fd                                );
-int       syscall_filesize( int fd                                );
-int       syscall_read    ( int fd, void * buffer, unsigned size  );
-void      syscall_seek    ( int fd, unsigned position             );
-unsigned  syscall_tell    ( int fd                                );
-void      syscall_close   ( int fd                                );
+void      syscall_close   ( int fd                                      );
+int       syscall_filesize( int fd                                      );
+int       syscall_read    ( int fd, void * buffer,      unsigned size   );
+void      syscall_seek    ( int fd, unsigned position                   );
+unsigned  syscall_tell    ( int fd                                      );
+int       syscall_write   ( int fd, const void * buffer, unsigned size  );
 
 
 /******************** Helper function prototypes *************************/
 static void               call_fail     ( void );
 static void               check_user_mem( const uint8_t *addr );
-static struct file_desc * find_file_dsc ( thread * thrd, int fd )
+static struct file_desc * find_file_dsc ( thread * thrd, int fd );
+static int                read_usr_mem  ( void * src, void * dst, size_t byte_cnt );
 
 
 
@@ -162,6 +163,7 @@ syscall_handler (struct intr_frame *f )
     break;
 
   case SYS_FILESIZE:
+  {
     int fd, ret_val;
 
     read_usr_mem( f->esp + STACK_ALIGNMENT_SINGLE, &fd, sizeof( fd ) );
@@ -169,7 +171,9 @@ syscall_handler (struct intr_frame *f )
     
     f->eax = ret_val;
     break;
+  }
   case SYS_READ:
+  {
     int fd, ret_val;
     void * buffer;
     unsigned size;
@@ -182,7 +186,9 @@ syscall_handler (struct intr_frame *f )
 
     f->eax = ret_val;
     break;
+  }
   case SYS_WRITE:
+  {
     int fd, ret_val;
     void * buffer;
     unsigned size;
@@ -195,7 +201,9 @@ syscall_handler (struct intr_frame *f )
 
     f->eax = ret_val;
     break;
+  }
   case SYS_SEEK:
+  {
     int fd;
     unsigned pos;
 
@@ -204,7 +212,9 @@ syscall_handler (struct intr_frame *f )
 
     syscall_seek( fd, pos );
     break;  
+  }
   case SYS_TELL:
+  {
     int fd; 
     unsigned ret_val;
 
@@ -213,12 +223,15 @@ syscall_handler (struct intr_frame *f )
     
     f->eax = ret_val;
     break;
+  }
   case SYS_CLOSE:
+  {
     int fd;
 
     read_usr_mem( f->esp + STACK_ALIGNMENT_SINGLE, &fd, sizeof( fd ) );
     syscall_close( fd );
     break;
+  }
   default:
       printf ("Unknown Ssytem Call!\n");
       thread_exit ();
@@ -305,7 +318,7 @@ bool remove (const char *file) {
 
 /**********************************************************************
  * 
- * Procedure: check_user_mem
+ * Procedure: call_fail
  * 
  * 
  *    Use: Releases locks and then returns and error
@@ -345,7 +358,7 @@ static void check_user_mem( const uint8_t *addr )
 **********************************************************************/
 static struct file_desc * find_file_dsc( thread * thrd, int fd )
 {
-  struct fild_desc * ret_desc;
+  struct file_desc * ret_desc;
   ASSERT( thrd != NULL );
 
   if( fd < FD_START )
@@ -365,11 +378,11 @@ static struct file_desc * find_file_dsc( thread * thrd, int fd )
 
       if( fl_desc->id == fd )
       {
-        return fl_desc;
+        ret_desc = fl_desc;
       }
     }
   }
-  return NULL;
+  return ret_desc;
 }
 
 /********************************* System Calls **********************************/
@@ -451,8 +464,7 @@ int syscall_read( int fd, void * buffer, unsigned size )
       // put_user returns false if there is a seg fault
       if( !put_user( buffer + byte_num, input_getc() ) )
       {
-        lock_release( &lock_file );
-        exit( -1 );
+        call_fail();
       }
     ret_val = size;
   }
