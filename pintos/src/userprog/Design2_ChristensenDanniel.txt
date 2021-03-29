@@ -135,11 +135,13 @@ typedef struct thread
     unsigned magic;                     /* Detects stack overflow. */
   }thread;
 
+struct file_desc {
+    int id;
+    struct list_elem elem;
+    struct file * file;
+};
+The file description handles the higher level file stuff.
 
-tid_t process_execute (const char *file_name); made public to be able to be used in syscall.c
-int process_wait (tid_t); made public to be able to be used in syscall.c
-void process_exit (void); made public to be able to be used in syscall.c
-void process_activate (void); made public to be able to be used in syscall.c
 
 >> B2: Describe how file descriptors are associated with open files.
 >> Are file descriptors unique within the entire OS or just within a
