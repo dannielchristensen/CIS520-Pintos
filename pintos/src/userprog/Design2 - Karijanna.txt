@@ -36,7 +36,32 @@ Kelcie Dinkle
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
-	N/A
+typedef struct thread
+  {
+    /* Owned by thread.c. */
+    tid_t tid;                          /* Thread identifier. */
+    enum thread_status status;          /* Thread state. */
+    char name[16];                      /* Name (for debugging purposes). */
+    uint8_t *stack;                     /* Saved stack pointer. */
+    int priority;                       /* Priority. */
+    struct list_elem allelem;           /* List element for all threads list. */
+    int64_t wakeup_time;
+
+    /* Shared between thread.c and synch.c. */
+    struct list_elem elem;              /* List element. */
+
+#ifdef USERPROG
+    /* Owned by userprog/process.c. */
+    uint32_t *pagedir;                  /* Page directory. */
+    bool success;                       /* Detect user thread's success */
+    struct list file_descriptors;	/* A list of file_descriptors related to the thread */
+    struct file * exec_file; 		/* the file the process is executing */
+    struct list child_list;		/* List of childeren processes */
+    struct process_control * pc;	/* process control for the thread */
+#endif
+    /* Owned by thread.c. */
+    unsigned magic;                     /* Detects stack overflow. */
+  }thread;
 
 ---- ALGORITHMS ----
 
@@ -83,8 +108,39 @@ Kelcie Dinkle
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
-	struct lock lock_file (syscall.c) - Lock is in charge of ensuring that only one process 
-	can access the file system at one time.
+	typedef struct thread
+  {
+    /* Owned by thread.c. */
+    tid_t tid;                          /* Thread identifier. */
+    enum thread_status status;          /* Thread state. */
+    char name[16];                      /* Name (for debugging purposes). */
+    uint8_t *stack;                     /* Saved stack pointer. */
+    int priority;                       /* Priority. */
+    struct list_elem allelem;           /* List element for all threads list. */
+    int64_t wakeup_time;
+
+    /* Shared between thread.c and synch.c. */
+    struct list_elem elem;              /* List element. */
+
+#ifdef USERPROG
+    /* Owned by userprog/process.c. */
+    uint32_t *pagedir;                  /* Page directory. */
+    bool success;                       /* Detect user thread's success */
+    struct list file_descriptors;	/* A list of file_descriptors related to the thread */
+    struct file * exec_file; 		/* the file the process is executing */
+    struct list child_list;		/* List of childeren processes */
+    struct process_control * pc;	/* process control for the thread */
+#endif
+    /* Owned by thread.c. */
+    unsigned magic;                     /* Detects stack overflow. */
+  }thread;
+
+tid_t process_execute (syscall.c) - Made public to be able to be used in syscall.c
+int process_wait (syscall.c) - Made public to be able to be used in syscall.c
+void process_exit (syscall.c) - Made public to be able to be used in syscall.c
+void process_activate (syscall.c) - Made public to be able to be used in syscall.c
+struct lock lock_file (syscall.c) - Lock is in charge of ensuring that only one process 
+can access the file system at one time.
 
 >> B2: Describe how file descriptors are associated with open files.
 >> Are file descriptors unique within the entire OS or just within a
@@ -104,6 +160,8 @@ Kelcie Dinkle
 	The reading and writing user data from the kernel is processed using 
 	syscall_read and syscall_write. The system calls expect a fd (file descriptor), 
 	pointer to a buffer, and a parameter specifying size of the buffer.
+	The methods within the syscall_read and syscall_write validated pointers then
+	dereference the pointers as needed. 
 	
 >> B4: Suppose a system call causes a full page (4,096 bytes) of data
 >> to be copied from user space into the kernel.  What is the least
@@ -117,10 +175,8 @@ Kelcie Dinkle
 	of size 4096, the data must exist on at most two pages. Therefore,
 	we would only need to make the call twice if the data is not page
 	aligned or once if the address is aligned to the beginning of a page
-	to make sure that all the data are on valid pages.
-
-For 2 bytes the case is the same as the optimized case above
-(obviously the naive approach would not make more than 2 calls).
+	to make sure that all the data are on valid pages. For 2 bytes the case is the same as the 
+	optimized case above. The naive approach would not make more than 2 calls.
 
 >> B5: Briefly describe your implementation of the "wait" system call
 >> and how it interacts with process termination.
@@ -155,6 +211,12 @@ For 2 bytes the case is the same as the optimized case above
 >> loading.  How does your code ensure this?  How is the load
 >> success/failure status passed back to the thread that calls "exec"?
 
+	The semaphore that was added makes sure the child completes
+	its process before the exec system is called. 
+	The process_control struct keeps track of the childs process
+	and loading status. The struct also helps with returning the
+	correct value of the child to the parent it belongs to. 
+
 >> B8: Consider parent process P with child process C.  How do you
 >> ensure proper synchronization and avoid race conditions when P
 >> calls wait(C) before C exits?  After C exits?  How do you ensure
@@ -177,6 +239,11 @@ For 2 bytes the case is the same as the optimized case above
 
 >> B9: Why did you choose to implement access to user memory from the
 >> kernel in the way that you did?
+
+	The get_user method checks the potencial space for the address in the 
+	user's memory space. This method worked along with pagedir_get_page
+	in order to validate pointers which also validated the pages that
+	were being used. 
 
 >> B10: What advantages or disadvantages can you see to your design
 >> for file descriptors?
