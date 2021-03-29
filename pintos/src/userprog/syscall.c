@@ -36,10 +36,9 @@ static void syscall_handler (struct intr_frame *);
 /******************** System call prototypes *********************/
 bool      syscall_remove  (const char * file                            );
 bool      syscall_create  (const char * file, unsigned initial_size     );
-int      syscall_wait     (tid_t                                        );
-tid_t      syscall_exec   (const char * cmd_line                        );
+int       syscall_wait    (tid_t                                        );
+tid_t     syscall_exec    (const char * cmd_line                        );
 void      syscall_halt    (void                                         );
-void      syscall_exit    ( int status                                  );
 void      syscall_close   ( int fd                                      );
 int       syscall_filesize( int fd                                      );
 int       syscall_open    ( const char * file                           );
