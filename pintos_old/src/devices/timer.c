@@ -89,11 +89,15 @@ timer_elapsed (int64_t then)
 void
 timer_sleep (int64_t ticks) 
 {
-  int64_t start = timer_ticks ();
+  int64_t wakeup_tme = timer_ticks () + ticks;
 
   ASSERT (intr_get_level () == INTR_ON);
-  while (timer_elapsed (start) < ticks) 
-    thread_yield ();
+  /*--------------------------------------------------------------------------
+  Increase priority to decrease likelyhood of thread being interrupted
+  --------------------------------------------------------------------------*/
+  //thread_prty_temp_max();
+  thread_sleep_time( wakeup_tme );
+  //thread_prty_rstr();
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
