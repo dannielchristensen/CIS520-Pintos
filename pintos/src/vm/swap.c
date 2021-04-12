@@ -23,6 +23,7 @@ static struct lock swap_lock;
 void
 swap_init (void) 
 {
+  // gets swap device to be used in swap_out and swap_in
   swap_device = block_get_role (BLOCK_SWAP);
   if (swap_device == NULL) 
     {
@@ -75,7 +76,12 @@ swap_out (struct page *p)
 
   // Write out page sectors
 /* add code here */ 
- 
+  for(i = 0; i<PAGE_SECTORS; i++){
+    // swap_device was already defined above -- its the block we that is initialized for swap operations
+    // PAGE_SECTORS is equal to the number of blocks that can fit into a page and we need to write to the page for each sector available
+    // Similar to block_read above in the swap_in() method
+    block_write(swap_device, p->sector+i, (uint8_t *) p->frame->base +i*BLOCK_SECTOR_SIZE);
+  }
   p->private = false;
   p->file = NULL;
   p->file_offset = 0;
