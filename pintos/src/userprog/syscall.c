@@ -513,6 +513,10 @@ unmap (struct mapping *m)
       file_write_at(m->file, (const void *) (m->base + (PGSIZE*i)), (PGSIZE*(m->page_cnt)), (PGSIZE*i));
       lock_release(&fs_lock);
     }
+  }
+
+  for(i = 0; i < m->page_cnt; i++)
+  {
     page_deallocate((void *) ((m->base) + (PGSIZE * i)));
   }
 }
