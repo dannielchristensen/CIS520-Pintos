@@ -9,16 +9,19 @@
 >> Fill in the names of your group members.
 
 Danniel Christensen
-Karijuanna Miller
+Karijanna Miller
 
 ---- PRELIMINARIES ----
 
 >> If you have any preliminary comments on your submission, notes for the
 >> TAs, or extra credit, please give them here.
 
+N/A
+
 >> Please cite any offline or online sources you consulted while
 >> preparing your submission, other than the Pintos documentation, course
 >> text, lecture notes, and course staff.
+
 https://static1.squarespace.com/static/5b18aa0955b02c1de94e4412/t/5b85fad2f950b7b16b7a2ed6/1535507195196/Pintos+Guide
 
 			PAGE TABLE MANAGEMENT
@@ -73,6 +76,7 @@ commands that manage the stack.
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+N/A
 
 ---- ALGORITHMS ----
 
@@ -80,8 +84,22 @@ commands that manage the stack.
 >> memory subsystem.  Explain how the page fault and eviction
 >> processes differ between swap pages and other pages.
 
+In 'syscall.c', there is a struct called 'mapping' which contains the memory mapped files. Individual mapping carries the
+reference to its address in memory along with the file that it maps. Individual thread contains the list of files mapped to
+the corresponding thread. The thread can show which files are currently present in memory. The pages containing the mapped
+files are managed in the same way as other pages. 
+
+The eviction process and page fault are different when it comes to pages belonging to memory mapped files. Pages that are
+not file related are moved to a swap partition which happens upon eviction. The files are moved regardless of the page
+being dirty. Modified memory mapped pages are written back to the file, and the unmodified ones are not. All memory mapped
+files avoid the swap partition. 
+
 >> C3: Explain how you determine whether a new file mapping overlaps
 >> any existing segment.
+
+If there are pages that are free and unmapped, then pages for a new file mapping are allocated. The function page_allocated()
+is able to access all file mappings that exists, and it will manage allocation so an already occupied space is not used again.
+If there is a new file trying to get into an already allocated space, the process will immediately fail and unmapped. 
 
 ---- RATIONALE ----
 
@@ -92,6 +110,11 @@ commands that manage the stack.
 >> implementation either does or does not share much of the code for
 >> the two situations.
 
+The processes are shared for much of the code. The page_out() function will page out any page no matter the origin on the page. 
+The page_out() function remains much the same except it has been modified to check if a page should be written back out to disk. 
+Pages that are marked private are swapped to the swap partition, and public pages are written back out to the file on disk. 
+The implementation was done this way because it makes the writing process easier compared to creating multiple subsystems depending
+on the type of the page. 
 
 			   SURVEY QUESTIONS
 			   ================
